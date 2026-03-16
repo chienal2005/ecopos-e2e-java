@@ -1,0 +1,230 @@
+# ═══════════════════════════════════════════════════════════════════════
+#  EcoPOS E2E Java — GitHub Actions CI/CD Pipeline
+# ═══════════════════════════════════════════════════════════════════════
+#
+#  Workflow gồm 2 jobs:
+#    1. build  — compile Java, cache Maven dependencies
+#    2. test   — chạy E2eSuiteTest (55 TCs) hoặc UatSuiteTest
+#
+#  Trigger:
+#    - Push lên nhánh main / develop
+#    - Pull Request vào main
+#    - Chạy thủ công (Actions → Run workflow)
+#
+#  Secrets được cấu hình tại:
+#    GitHub Repo → Settings → Secrets and variables → Actions
+# ═══════════════════════════════════════════════════════════════════════
+
+name: 🧪 EcoPOS E2E Tests
+
+on:
+  # Tự động khi push vào main hoặc develop
+  push:
+    branches:
+      - main
+      - develop
+
+  # Tự động khi có Pull Request vào main
+  pull_request:
+    branches:
+      - main
+
+  # Chạy thủ công từ GitHub UI
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Môi trường chạy test"
+        required: true
+        default: "test"
+        type: choice
+        options:
+          - test
+          - uat
+      test_suite:
+        description: "Test suite cần chạy"
+        required: true
+        default: "E2eSuiteTest"
+        type: choice
+        options:
+          - E2eSuiteTest
+          - UatSuiteTest
+
+# ── Biến môi trường dùng chung ───────────────────────────────────────
+env:
+  JAVA_VERSION: "17"
+  MAVEN_OPTS: "-Xmx512m -Dmaven.repo.local=~/.m2/repository"
+
+jobs:
+  # ═══════════════════════════════════════════════════════════════════
+  # JOB 1 — BUILD
+  # Compile mã nguồn Java, cache Maven dependencies
+  # ═══════════════════════════════════════════════════════════════════
+  build:
+    name: 🔨 Build & Compile
+    runs-on: ubuntu-latest
+
+    steps:
+      # Bước 1: Clone source code về runner
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+
+      # Bước 2: Cài Java 17 (LTS)
+      - name: ☕ Setup Java ${{ env.JAVA_VERSION }}
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: "temurin"
+          cache: "maven"          # GitHub tự cache ~/.m2 theo pom.xml hash
+
+      # Bước 3: Compile (không chạy test)
+      - name: 🔨 Maven compile
+        run: mvn --batch-mode compile -DskipTests
+
+      # Bước 4: Cache thư mục build để job test dùng lại
+      - name: 💾 Upload build target
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-target
+          path: target/
+          retention-days: 1
+
+  # ═══════════════════════════════════════════════════════════════════
+  # JOB 2A — E2E TEST (môi trường TEST — tự động)
+  # ═══════════════════════════════════════════════════════════════════
+  e2e-test:
+    name: 🧪 E2E Tests (TEST env)
+    runs-on: ubuntu-latest
+    needs: build                   # Chờ build xong mới chạy
+    # Chỉ chạy tự động khi KHÔNG phải manual trigger với UAT
+    if: >
+      github.event_name != 'workflow_dispatch' ||
+      inputs.environment == 'test'
+
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+
+      - name: ☕ Setup Java ${{ env.JAVA_VERSION }}
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: "temurin"
+          cache: "maven"
+
+      # Bước quan trọng: Tạo file .env từ GitHub Secrets
+      - name: 🔐 Create .env file from Secrets
+        run: |
+          cat > .env <<EOF
+          APP_ENV=test
+          TEST_EMAIL_LOGIN=${{ secrets.TEST_EMAIL_LOGIN }}
+          TEST_PASSWORD_LOGIN=${{ secrets.TEST_PASSWORD_LOGIN }}
+          TEST_SITE_ID=${{ secrets.TEST_SITE_ID }}
+          TEST_MNB_STORE_CODE=${{ secrets.TEST_MNB_STORE_CODE }}
+          TEST_BRANCH_NAME=${{ secrets.TEST_BRANCH_NAME }}
+          TEST_PARTNER_TOKEN=${{ secrets.TEST_PARTNER_TOKEN }}
+          BASE_URL=${{ secrets.BASE_URL }}
+          TELEGRAM_BOT_TOKEN=${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID=${{ secrets.TELEGRAM_CHAT_ID }}
+          REPORT_TITLE=📦 [CI] ĐƠN BÁN HÀNG FNB - POS APP
+          EOF
+          echo "✅ .env file created"
+
+      # Xác định test suite sẽ chạy
+      - name: 🎯 Set test suite
+        id: suite
+        run: |
+          SUITE="${{ inputs.test_suite || 'E2eSuiteTest' }}"
+          echo "suite=$SUITE" >> $GITHUB_OUTPUT
+          echo "Running suite: $SUITE"
+
+      # Chạy Maven test
+      - name: 🧪 Run Maven Tests
+        run: |
+          mvn --batch-mode test \
+            -Dtest=${{ steps.suite.outputs.suite }} \
+            -DAPP_ENV=test \
+            -Dsurefire.failIfNoSpecifiedTests=false
+        continue-on-error: true    # Tiếp tục để upload report dù có test fail
+
+      # Upload surefire XML report (TestNG results)
+      - name: 📊 Upload Test Report
+        if: always()               # Luôn upload dù pass hay fail
+        uses: actions/upload-artifact@v4
+        with:
+          name: surefire-reports-test-${{ github.run_number }}
+          path: target/surefire-reports/
+          retention-days: 7
+
+      # Hiển thị test results ngay trong GitHub UI
+      - name: 📋 Publish Test Results
+        if: always()
+        uses: dorny/test-reporter@v1
+        with:
+          name: "🧪 E2E Test Results"
+          path: "target/surefire-reports/*.xml"
+          reporter: java-junit
+          fail-on-error: true      # Đánh dấu workflow FAILED nếu có test fail
+
+  # ═══════════════════════════════════════════════════════════════════
+  # JOB 2B — UAT TEST (thủ công qua workflow_dispatch)
+  # ═══════════════════════════════════════════════════════════════════
+  uat-test:
+    name: 🔬 UAT Tests (UAT env)
+    runs-on: ubuntu-latest
+    needs: build
+    # Chỉ chạy khi trigger thủ công VÀ chọn môi trường uat
+    if: >
+      github.event_name == 'workflow_dispatch' &&
+      inputs.environment == 'uat'
+
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+
+      - name: ☕ Setup Java ${{ env.JAVA_VERSION }}
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: "temurin"
+          cache: "maven"
+
+      - name: 🔐 Create .env file (UAT)
+        run: |
+          cat > .env <<EOF
+          APP_ENV=uat
+          UAT_EMAIL_LOGIN=${{ secrets.UAT_EMAIL_LOGIN }}
+          UAT_PASSWORD_LOGIN=${{ secrets.UAT_PASSWORD_LOGIN }}
+          UAT_SITE_ID=${{ secrets.UAT_SITE_ID }}
+          UAT_MNB_STORE_CODE=${{ secrets.UAT_MNB_STORE_CODE }}
+          UAT_BRANCH_NAME=${{ secrets.UAT_BRANCH_NAME }}
+          UAT_PARTNER_TOKEN=${{ secrets.UAT_PARTNER_TOKEN }}
+          BASE_URL=${{ secrets.UAT_BASE_URL }}
+          TELEGRAM_BOT_TOKEN=${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID=${{ secrets.TELEGRAM_CHAT_ID }}
+          REPORT_TITLE=📦 [UAT] EcoPOS E2E
+          EOF
+
+      - name: 🔬 Run UAT Tests
+        run: |
+          mvn --batch-mode test \
+            -Dtest=UatSuiteTest \
+            -DAPP_ENV=uat \
+            -Dsurefire.failIfNoSpecifiedTests=false
+        continue-on-error: true
+
+      - name: 📊 Upload UAT Report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: surefire-reports-uat-${{ github.run_number }}
+          path: target/surefire-reports/
+          retention-days: 30
+
+      - name: 📋 Publish UAT Test Results
+        if: always()
+        uses: dorny/test-reporter@v1
+        with:
+          name: "🔬 UAT Test Results"
+          path: "target/surefire-reports/*.xml"
+          reporter: java-junit
+          fail-on-error: true

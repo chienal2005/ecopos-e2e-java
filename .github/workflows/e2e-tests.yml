@@ -51,7 +51,7 @@ on:
 
 # ── Biến môi trường dùng chung ───────────────────────────────────────
 env:
-  JAVA_VERSION: "17"
+  JAVA_VERSION: "23"
   MAVEN_OPTS: "-Xmx512m -Dmaven.repo.local=~/.m2/repository"
 
 jobs:

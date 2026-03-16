@@ -1,26 +1,183 @@
-# You can override the included template(s) by including variable overrides
-# SAST customization: https://docs.gitlab.com/ee/user/application_security/sast/#customizing-the-sast-settings
-# Secret Detection customization: https://docs.gitlab.com/ee/user/application_security/secret_detection/pipeline/#customization
-# Dependency Scanning customization: https://docs.gitlab.com/ee/user/application_security/dependency_scanning/#customizing-the-dependency-scanning-settings
-# Container Scanning customization: https://docs.gitlab.com/ee/user/application_security/container_scanning/#customizing-the-container-scanning-settings
-# Note that environment variables can be set in several places
-# See https://docs.gitlab.com/ee/ci/variables/#cicd-variable-precedence
+# ═══════════════════════════════════════════════════════════════════════
+#  EcoPOS E2E Java — GitLab CI/CD Pipeline
+# ═══════════════════════════════════════════════════════════════════════
+#
+#  Pipeline gồm 3 stages:
+#    1. build  — compile mã nguồn Java, cache dependencies
+#    2. test   — chạy toàn bộ test suite (TestNG + Maven Surefire)
+#    3. report — publish HTML test report lên GitLab Pages (optional)
+#
+#  Trigger:
+#    - Push lên nhánh main / develop
+#    - Merge Request vào main
+#    - Chạy thủ công (pipeline → Run pipeline)
+#
+#  Biến môi trường bí mật được cấu hình tại:
+#    GitLab Project → Settings → CI/CD → Variables
+# ═══════════════════════════════════════════════════════════════════════
+
+# ── Thứ tự các stage ────────────────────────────────────────────────────
 stages:
-- build
-- test
-- deploy
-- review
-- dast
-- staging
-- canary
-- production
-- incremental rollout 10%
-- incremental rollout 25%
-- incremental rollout 50%
-- incremental rollout 100%
-- performance
-- cleanup
-sast:
+  - build
+  - test
+  - report
+
+# ── Biến dùng chung ─────────────────────────────────────────────────────
+variables:
+  MAVEN_OPTS: "-Dmaven.repo.local=.m2/repository -Xmx512m"
+  MAVEN_CLI_OPTS: "--batch-mode --errors --fail-at-end"
+  APP_ENV: "test"                         # Môi trường mặc định khi chạy CI
+
+# ── Cache Maven dependencies ─────────────────────────────────────────────
+# Lưu lại thư mục .m2 để lần sau không phải download lại dependency
+.cache_maven: &cache_maven
+  cache:
+    key: "maven-$CI_COMMIT_REF_SLUG"
+    paths:
+      - .m2/repository
+    policy: pull-push
+
+# ── Base image (Java 17 - LTS, tương thích Maven + TestNG) ───────────────
+# Dùng Java 17 thay vì 23 vì GitLab runners thường chạy LTS
+# Nếu runner của bạn có Java 23 thì đổi thành: maven:3.9-eclipse-temurin-23
+image: maven:3.9-eclipse-temurin-17
+
+# ═══════════════════════════════════════════════════════════════════════
+# STAGE 1 — BUILD
+# Mục đích: Kiểm tra mã nguồn compile được không, cache dependencies
+# ═══════════════════════════════════════════════════════════════════════
+build:
+  stage: build
+  <<: *cache_maven
+  script:
+    - echo "🔨 Bắt đầu compile dự án Java..."
+    - mvn $MAVEN_CLI_OPTS compile -DskipTests
+    - echo "✅ Compile thành công!"
+  rules:
+    # Chạy khi push vào main hoặc develop
+    - if: '$CI_COMMIT_BRANCH == "main" || $CI_COMMIT_BRANCH == "develop"'
+    # Chạy khi có Merge Request
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    # Cho phép chạy thủ công
+    - when: manual
+      allow_failure: true
+
+# ═══════════════════════════════════════════════════════════════════════
+# STAGE 2A — E2E TESTS (Môi trường TEST)
+# Chạy toàn bộ 55 test cases của E2eSuiteTest
+# ═══════════════════════════════════════════════════════════════════════
+e2e-test:
   stage: test
-include:
-- template: Auto-DevOps.gitlab-ci.yml
+  <<: *cache_maven
+  needs: ["build"]           # Không chạy nếu build fail
+  script:
+    - echo "🧪 Chạy E2E Tests — môi trường: $APP_ENV"
+    # Tạo file .env từ biến GitLab CI/CD Variables
+    - |
+      cat > .env <<EOF
+      APP_ENV=${APP_ENV}
+      TEST_EMAIL_LOGIN=${TEST_EMAIL_LOGIN}
+      TEST_PASSWORD_LOGIN=${TEST_PASSWORD_LOGIN}
+      TEST_SITE_ID=${TEST_SITE_ID}
+      TEST_MNB_STORE_CODE=${TEST_MNB_STORE_CODE}
+      TEST_BRANCH_NAME=${TEST_BRANCH_NAME}
+      TEST_PARTNER_TOKEN=${TEST_PARTNER_TOKEN}
+      BASE_URL=${BASE_URL}
+      TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      TELEGRAM_CHAT_ID=${TELEGRAM_CHAT_ID}
+      REPORT_TITLE=${REPORT_TITLE}
+      EOF
+    - mvn $MAVEN_CLI_OPTS test -Dtest=E2eSuiteTest -DAPP_ENV=${APP_ENV}
+    - echo "✅ E2E Tests hoàn thành!"
+  after_script:
+    # Luôn chạy dù test pass hay fail — để lưu artifacts
+    - echo "📊 Thu thập test reports..."
+  artifacts:
+    when: always                          # Lưu report dù pass hay fail
+    expire_in: 7 days
+    paths:
+      - target/surefire-reports/         # XML + TXT reports của TestNG
+    reports:
+      junit: target/surefire-reports/*.xml   # GitLab hiển thị test results UI
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
+    - if: '$CI_COMMIT_BRANCH == "develop"'
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+  # Cho phép chạy thủ công với môi trường khác
+  environment:
+    name: test
+
+# ═══════════════════════════════════════════════════════════════════════
+# STAGE 2B — UAT TESTS (Chạy thủ công, môi trường UAT)
+# Trigger thủ công qua: Pipelines → Run Pipeline → APP_ENV=uat
+# ═══════════════════════════════════════════════════════════════════════
+uat-test:
+  stage: test
+  <<: *cache_maven
+  needs: ["build"]
+  script:
+    - echo "🧪 Chạy UAT Tests — môi trường: UAT"
+    - |
+      cat > .env <<EOF
+      APP_ENV=uat
+      UAT_EMAIL_LOGIN=${UAT_EMAIL_LOGIN}
+      UAT_PASSWORD_LOGIN=${UAT_PASSWORD_LOGIN}
+      UAT_SITE_ID=${UAT_SITE_ID}
+      UAT_MNB_STORE_CODE=${UAT_MNB_STORE_CODE}
+      UAT_BRANCH_NAME=${UAT_BRANCH_NAME}
+      UAT_PARTNER_TOKEN=${UAT_PARTNER_TOKEN}
+      BASE_URL=${UAT_BASE_URL}
+      TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      TELEGRAM_CHAT_ID=${TELEGRAM_CHAT_ID}
+      REPORT_TITLE=📦 UAT — EcoPOS E2E
+      EOF
+    - mvn $MAVEN_CLI_OPTS test -Dtest=UatSuiteTest -DAPP_ENV=uat
+    - echo "✅ UAT Tests hoàn thành!"
+  artifacts:
+    when: always
+    expire_in: 30 days
+    paths:
+      - target/surefire-reports/
+    reports:
+      junit: target/surefire-reports/*.xml
+  rules:
+    # Chỉ chạy thủ công — không tự động
+    - when: manual
+      allow_failure: true
+  environment:
+    name: uat
+
+# ═══════════════════════════════════════════════════════════════════════
+# STAGE 3 — PUBLISH REPORT (GitLab Pages)
+# Lấy HTML report từ Surefire và đăng lên GitLab Pages
+# ═══════════════════════════════════════════════════════════════════════
+pages:
+  stage: report
+  needs: ["e2e-test"]
+  script:
+    - echo "📄 Publish test report lên GitLab Pages..."
+    - mkdir -p public
+    - cp -r target/surefire-reports/* public/ 2>/dev/null || true
+    - |
+      # Tạo index.html nếu chưa có
+      if [ ! -f public/index.html ]; then
+        cat > public/index.html <<'HTMLEOF'
+      <!DOCTYPE html>
+      <html lang="vi">
+      <head><meta charset="UTF-8"><title>EcoPOS E2E Test Report</title></head>
+      <body>
+        <h1>EcoPOS E2E Test Reports</h1>
+        <p>Xem file XML: <a href="testng-results.xml">testng-results.xml</a></p>
+      </body>
+      </html>
+      HTMLEOF
+      fi
+    - echo "✅ Report đã publish tại: $CI_PAGES_URL"
+  artifacts:
+    paths:
+      - public
+    expire_in: 30 days
+  rules:
+    # Chỉ publish pages từ nhánh main
+    - if: '$CI_COMMIT_BRANCH == "main"'
+      when: always

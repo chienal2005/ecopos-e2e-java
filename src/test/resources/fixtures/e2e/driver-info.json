@@ -1,0 +1,106 @@
+[
+    {
+        "id": "driver-01",
+        "title": "Update driver thành công",
+        "tags": [
+            "api",
+            "smoke"
+        ],
+        "flow": "confirmed-order",
+        "driverOverride": {},
+        "expect": {
+            "status": 200
+        }
+    },
+    {
+        "id": "driver-02",
+        "title": "Thiếu tp_order_code → 400",
+        "tags": [
+            "api",
+            "contract"
+        ],
+        "flow": "no-setup",
+        "driverOverride": {
+            "tp_order_code": ""
+        },
+        "expect": {
+            "statusIn": [
+                400,
+                422
+            ]
+        }
+    },
+    {
+        "id": "driver-03",
+        "title": "Sai mnb_store_code → 400/404",
+        "tags": [
+            "api",
+            "contract"
+        ],
+        "flow": "no-setup",
+        "driverOverride": {
+            "mnb_store_code": "STORE_NOT_EXIST",
+            "tp_order_code": "ANY_CODE"
+        },
+        "expect": {
+            "statusIn": [
+                400,
+                404
+            ]
+        }
+    },
+    {
+        "id": "driver-04",
+        "title": "Bỏ trống tên tài xế → 400",
+        "tags": [
+            "api",
+            "contract"
+        ],
+        "flow": "confirmed-order",
+        "driverOverride": {
+            "driver_name": ""
+        },
+        "expect": {
+            "statusIn": [
+                400,
+                422
+            ]
+        }
+    },
+    {
+        "id": "driver-05",
+        "title": "Bỏ trống số điện thoại tài xế → 400",
+        "tags": [
+            "api",
+            "contract"
+        ],
+        "flow": "confirmed-order",
+        "driverOverride": {
+            "driver_phone": ""
+        },
+        "expect": {
+            "statusIn": [
+                400,
+                422
+            ]
+        }
+    },
+    {
+        "id": "driver-06",
+        "title": "tp_order_code không tồn tại → 400/404",
+        "tags": [
+            "api",
+            "contract"
+        ],
+        "flow": "no-setup",
+        "driverOverride": {
+            "tp_order_code": "ORDER_NOT_EXIST_999"
+        },
+        "expect": {
+            "statusIn": [
+                400,
+                404
+            ]
+        }
+    }
+]

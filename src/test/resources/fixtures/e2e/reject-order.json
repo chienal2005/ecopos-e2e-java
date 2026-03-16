@@ -1,0 +1,51 @@
+[
+    {
+        "id": "reject-01",
+        "title": "Confirm xong → Reject bị chặn (không phải 200)",
+        "tags": [
+            "api"
+        ],
+        "flow": "confirm-then-reject",
+        "items": [
+            {
+                "sku": "5000154",
+                "name": "B.Bao TP Heo 1C 480g",
+                "price": 48000
+            },
+            {
+                "sku": "5000118",
+                "name": "H.Cảo TP Heo 500g",
+                "price": 70000
+            }
+        ],
+        "rejectReason": "Test reject sau confirm",
+        "expect": {
+            "statusNot": 200
+        }
+    },
+    {
+        "id": "reject-02",
+        "title": "Reject đơn PENDING_CONFIRM → 200",
+        "tags": [
+            "api",
+            "smoke"
+        ],
+        "flow": "push-then-reject",
+        "items": [
+            {
+                "sku": "5000154",
+                "name": "B.Bao TP Heo 1C 480g",
+                "price": 48000
+            },
+            {
+                "sku": "5000118",
+                "name": "H.Cảo TP Heo 500g",
+                "price": 70000
+            }
+        ],
+        "rejectReason": "Không đủ nhân sự - E2E",
+        "expect": {
+            "status": 200
+        }
+    }
+]

@@ -1,0 +1,248 @@
+[
+    {
+        "id": "push-01",
+        "title": "Push đơn hợp lệ (giá đúng) → 201",
+        "tags": [
+            "smoke"
+        ],
+        "override": {},
+        "expect": {
+            "status": 201
+        }
+    },
+    {
+        "id": "push-02",
+        "title": "Thiếu tp_order_code → 400",
+        "tags": [
+            "contract",
+            "validation"
+        ],
+        "override": {
+            "tp_order_code": ""
+        },
+        "expect": {
+            "statusNot": [
+                200,
+                201
+            ]
+        }
+    },
+    {
+        "id": "push-03",
+        "title": "Thiếu mnb_store_code → 400",
+        "tags": [
+            "contract",
+            "validation"
+        ],
+        "override": {
+            "mnb_store_code": ""
+        },
+        "expect": {
+            "statusNot": [
+                200,
+                201
+            ]
+        }
+    },
+    {
+        "id": "push-04",
+        "title": "Items rỗng → 400",
+        "tags": [
+            "contract",
+            "validation"
+        ],
+        "override": {
+            "items": []
+        },
+        "expect": {
+            "statusNot": [
+                200,
+                201
+            ]
+        }
+    },
+    {
+        "id": "push-05",
+        "title": "Giá âm → 400/422",
+        "tags": [
+            "contract",
+            "validation"
+        ],
+        "override": {
+            "items": [
+                {
+                    "sku": "5000154",
+                    "name": "B.Bao TP Heo 1C 480g",
+                    "qty": 1,
+                    "price": -1000
+                }
+            ]
+        },
+        "expect": {
+            "statusNot": [
+                200,
+                201
+            ]
+        }
+    },
+    {
+        "id": "push-06",
+        "title": "Qty = 0 → 400/422",
+        "tags": [
+            "contract",
+            "validation"
+        ],
+        "override": {
+            "items": [
+                {
+                    "sku": "5000154",
+                    "name": "B.Bao TP Heo 1C 480g",
+                    "qty": 0,
+                    "price": 48000
+                }
+            ]
+        },
+        "expect": {
+            "statusNot": [
+                200,
+                201
+            ]
+        }
+    },
+    {
+        "id": "push-07",
+        "title": "SKU không tồn tại → 400/422",
+        "tags": [
+            "contract",
+            "validation"
+        ],
+        "override": {
+            "items": [
+                {
+                    "sku": "SKU_NOT_EXIST_999",
+                    "name": "Fake",
+                    "qty": 1,
+                    "price": 1000
+                }
+            ]
+        },
+        "expect": {
+            "statusNot": [
+                200,
+                201
+            ]
+        }
+    },
+    {
+        "id": "push-08",
+        "title": "Store không tồn tại → 404/422",
+        "tags": [
+            "contract"
+        ],
+        "override": {
+            "mnb_store_code": "STORE_NOT_EXIST_999"
+        },
+        "expect": {
+            "statusNot": [
+                200,
+                201
+            ]
+        }
+    },
+    {
+        "id": "push-09",
+        "title": "[BUG] phone_last4 sai format → API chưa validate, trả 201",
+        "tags": [
+            "contract",
+            "validation"
+        ],
+        "knownBug": "API chưa validate phone_last4 format",
+        "override": {
+            "customer_info": {
+                "masked_name": "Test",
+                "phone_last4": "12",
+                "delivery_address": "HCM"
+            }
+        },
+        "expect": {
+            "statusIn": [201, 400]
+        }
+    },
+    {
+        "id": "push-10",
+        "title": "customer_info thiếu tên → 400",
+        "tags": [
+            "contract",
+            "validation"
+        ],
+        "override": {
+            "customer_info": {
+                "masked_name": "",
+                "phone_last4": "0961478888",
+                "delivery_address": "HCM"
+            }
+        },
+        "expect": {
+            "statusNot": [
+                200,
+                201
+            ]
+        }
+    },
+    {
+        "id": "push-11",
+        "title": "Sửa giá SP không cho phép sửa giá (5000185) → không tạo đơn được",
+        "tags": [
+            "contract",
+            "price"
+        ],
+        "note": "SP 5000185 (Nhân Hamburger TP Bò 650g) không cho phép sửa giá khi bán hàng",
+        "override": {
+            "items": [
+                {
+                    "sku": "5000185",
+                    "name": "Nhân Hamburger TP Bò 650g",
+                    "qty": 1,
+                    "price": 100000,
+                    "_note": "Giá gốc 170000, sửa thành 100000 → SP không cho phép sửa giá → fail"
+                }
+            ]
+        },
+        "expect": {
+            "statusNot": [
+                200,
+                201
+            ]
+        }
+    },
+    {
+        "id": "push-12",
+        "title": "Sửa giá SP cho phép sửa giá → tạo đơn thành công 201",
+        "tags": [
+            "contract",
+            "price"
+        ],
+        "note": "Các SP thông thường cho phép sửa giá khi bán hàng",
+        "override": {
+            "items": [
+                {
+                    "sku": "5000154",
+                    "name": "B.Bao TP Heo 1C 480g",
+                    "qty": 1,
+                    "price": 40000,
+                    "_note": "Giá gốc 48000, sửa thành 40000 → SP cho phép sửa giá → OK"
+                },
+                {
+                    "sku": "5000118",
+                    "name": "H.Cảo TP Heo 500g",
+                    "qty": 1,
+                    "price": 60000,
+                    "_note": "Giá gốc 70000, sửa thành 60000 → SP cho phép sửa giá → OK"
+                }
+            ]
+        },
+        "expect": {
+            "status": 201
+        }
+    }
+]

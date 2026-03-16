@@ -1,0 +1,74 @@
+[
+    {
+        "moveState": "ACCEPTED",
+        "cancelState": "ORDER_CANCELLED"
+    },
+    {
+        "moveState": "ACCEPTED",
+        "cancelState": "TIMEOUT_CANCELLED"
+    },
+    {
+        "moveState": "ACCEPTED",
+        "cancelState": "DELIVERY_FAILED"
+    },
+    {
+        "moveState": "DRIVER_ASSIGNED",
+        "cancelState": "ORDER_CANCELLED"
+    },
+    {
+        "moveState": "DRIVER_ASSIGNED",
+        "cancelState": "TIMEOUT_CANCELLED"
+    },
+    {
+        "moveState": "DRIVER_ASSIGNED",
+        "cancelState": "DELIVERY_FAILED"
+    },
+    {
+        "moveState": "DRIVER_PICKING",
+        "cancelState": "ORDER_CANCELLED"
+    },
+    {
+        "moveState": "DRIVER_PICKING",
+        "cancelState": "TIMEOUT_CANCELLED"
+    },
+    {
+        "moveState": "DRIVER_PICKING",
+        "cancelState": "DELIVERY_FAILED"
+    },
+    {
+        "moveState": "DRIVER_ARRIVED",
+        "cancelState": "ORDER_CANCELLED"
+    },
+    {
+        "moveState": "DRIVER_ARRIVED",
+        "cancelState": "TIMEOUT_CANCELLED"
+    },
+    {
+        "moveState": "DRIVER_ARRIVED",
+        "cancelState": "DELIVERY_FAILED"
+    },
+    {
+        "moveState": "DRIVER_DELIVERING",
+        "cancelState": "ORDER_CANCELLED"
+    },
+    {
+        "moveState": "DRIVER_DELIVERING",
+        "cancelState": "TIMEOUT_CANCELLED"
+    },
+    {
+        "moveState": "DRIVER_DELIVERING",
+        "cancelState": "DELIVERY_FAILED"
+    },
+    {
+        "moveState": "DRIVER_CANCELLED",
+        "cancelState": "ORDER_CANCELLED"
+    },
+    {
+        "moveState": "DRIVER_CANCELLED",
+        "cancelState": "TIMEOUT_CANCELLED"
+    },
+    {
+        "moveState": "DRIVER_CANCELLED",
+        "cancelState": "DELIVERY_FAILED"
+    }
+]

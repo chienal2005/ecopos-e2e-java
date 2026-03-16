@@ -1,0 +1,118 @@
+[
+    {
+        "id": "confirm-01",
+        "title": "SP không cho phép bán âm, vượt tồn kho → 422",
+        "tags": [
+            "api"
+        ],
+        "note": "SP 5000154 không cho phép bán âm → vượt tồn phải báo lỗi 422",
+        "items": [
+            {
+                "sku": "5000154",
+                "name": "B.Bao TP Heo 1C 480g",
+                "qty": 9999,
+                "price": 48000,
+                "_note": "qty = 9999 để chắc chắn vượt tồn kho, SP không bán âm → 422"
+            }
+        ],
+        "expect": {
+            "status": 422
+        }
+    },
+    {
+        "id": "confirm-02",
+        "title": "SP cho phép bán âm (5000185), vượt tồn → vẫn confirm OK 200",
+        "tags": [
+            "api"
+        ],
+        "note": "Pre-condition: SKU 5000185 (Nhân Hamburger TP Bò) phải bật cho phép bán âm",
+        "items": [
+            {
+                "sku": "5000185",
+                "name": "Nhân Hamburger TP Bò 650g",
+                "qty": 2001,
+                "price": 170000,
+                "_note": "qty = 2001 vượt tồn, nhưng SP cho phép bán âm → confirm 200"
+            }
+        ],
+        "expect": {
+            "status": 200
+        }
+    },
+    {
+        "id": "confirm-03",
+        "title": "Tất cả SP đủ tồn kho → 200",
+        "tags": [
+            "api",
+            "smoke"
+        ],
+        "items": [
+            {
+                "sku": "5000154",
+                "name": "B.Bao TP Heo 1C 480g",
+                "price": 48000
+            },
+            {
+                "sku": "5000118",
+                "name": "H.Cảo TP Heo 500g",
+                "price": 70000
+            }
+        ],
+        "expect": {
+            "status": 200
+        }
+    },
+    {
+        "id": "confirm-04",
+        "title": "Mix: 1 SP bán âm vượt tồn + 1 SP thường đủ tồn → 200",
+        "tags": [
+            "api"
+        ],
+        "note": "SP 5000185 cho phép bán âm (vượt tồn OK), SP 5000154 đủ tồn → confirm OK",
+        "items": [
+            {
+                "sku": "5000185",
+                "name": "Nhân Hamburger TP Bò 650g",
+                "qty": 9999,
+                "price": 170000,
+                "_note": "SP bán âm, qty vượt tồn → cho phép"
+            },
+            {
+                "sku": "5000154",
+                "name": "B.Bao TP Heo 1C 480g",
+                "price": 48000,
+                "_note": "SP thường, qty random nhỏ → đủ tồn"
+            }
+        ],
+        "expect": {
+            "status": 200
+        }
+    },
+    {
+        "id": "confirm-05",
+        "title": "Mix: 1 SP bán âm vượt tồn + 1 SP thường vượt tồn → 422",
+        "tags": [
+            "api"
+        ],
+        "note": "SP 5000185 bán âm OK, nhưng SP 5000154 không bán âm và vượt tồn → 422",
+        "items": [
+            {
+                "sku": "5000185",
+                "name": "Nhân Hamburger TP Bò 650g",
+                "qty": 9999,
+                "price": 170000,
+                "_note": "SP bán âm, vượt tồn → OK"
+            },
+            {
+                "sku": "5000154",
+                "name": "B.Bao TP Heo 1C 480g",
+                "qty": 9999,
+                "price": 48000,
+                "_note": "SP thường, qty = 9999 vượt tồn → fail → cả đơn 422"
+            }
+        ],
+        "expect": {
+            "status": 422
+        }
+    }
+]

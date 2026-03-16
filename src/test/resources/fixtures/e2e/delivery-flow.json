@@ -1,0 +1,37 @@
+{
+    "description": "Full happy-path delivery: ACCEPTED → DRIVER_ASSIGNED → DRIVER_CANCELLED → DRIVER_ASSIGNED → DRIVER_PICKING → DRIVER_ARRIVED → DRIVER_DELIVERING → DELIVERED",
+    "flow": [
+        {
+            "status": "ACCEPTED",
+            "expectEcoStatus": "confirmed"
+        },
+        {
+            "status": "DRIVER_ASSIGNED",
+            "expectEcoStatus": "in_transit"
+        },
+        {
+            "status": "DRIVER_CANCELLED",
+            "expectEcoStatus": "in_transit"
+        },
+        {
+            "status": "DRIVER_ASSIGNED",
+            "expectEcoStatus": "in_transit"
+        },
+        {
+            "status": "DRIVER_PICKING",
+            "expectEcoStatus": "in_transit"
+        },
+        {
+            "status": "DRIVER_ARRIVED",
+            "expectEcoStatus": "in_transit"
+        },
+        {
+            "status": "DRIVER_DELIVERING",
+            "expectEcoStatus": "in_transit"
+        },
+        {
+            "status": "DELIVERED",
+            "expectEcoStatus": "completed"
+        }
+    ]
+}

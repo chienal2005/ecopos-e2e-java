@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE suite SYSTEM "https://testng.org/testng-1.0.dtd">
+
+<!--
+  ═══════════════════════════════════════════════════════════════════════
+  EcoPOS Mobile Online Order — Test Suite riêng cho mobile UI
+  ═══════════════════════════════════════════════════════════════════════
+
+  Chạy:
+    mvn test -DsuiteXmlFile=src/test/resources/testng-mobile.xml
+    hoặc:
+    mvn test -Dtest=OnlineOrderMobileTest
+
+  Yêu cầu:
+    - Thiết bị Android đã kết nối qua USB (adb devices)
+    - App TEST ECOPOS đã cài (vn.com.finviet.ecopos.test)
+  ═══════════════════════════════════════════════════════════════════════
+-->
+
+<suite name="EcoPOS Mobile Online Order Test Suite" verbose="1" parallel="false">
+
+    <test name="Mobile Online Order Tests">
+        <classes>
+            <class name="com.ecopos.mobile.OnlineOrderMobileTest"/>
+        </classes>
+    </test>
+
+</suite>
